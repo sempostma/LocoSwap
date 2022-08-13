@@ -41,7 +41,7 @@ namespace LocoSwap
                 return _vehicleImageTable[xmlPath];
             }
 
-            var availibility = IsVehicleAvailable(vehicle);
+            var availibility = IsVehicleAvailable(vehicle, new AvailableVehicle.Context());
             if (!availibility.Available)
             {
                 _vehicleImageTable[xmlPath] = "/LocoSwap;component/Resources/PreviewNotAvailable.png";
@@ -103,7 +103,7 @@ namespace LocoSwap
             var binPath = Path.ChangeExtension(vehicle.XmlPath, "bin");
             try
             {
-                AvailableVehicle actualVehicle = new AvailableVehicle(binPath);
+                AvailableVehicle actualVehicle = new AvailableVehicle(binPath, new AvailableVehicle.Context());
                 _vehicleDisplayNameTable[vehicle.XmlPath] = actualVehicle.DisplayName;
             }
             catch (Exception)
@@ -160,7 +160,7 @@ namespace LocoSwap
             return _numberingListCache[location];
         }
 
-        public static VehicleAvailibilityResult IsVehicleAvailable(Vehicle vehicle)
+        public static VehicleAvailibilityResult IsVehicleAvailable(Vehicle vehicle, AvailableVehicle.Context context)
         {
             VehicleAvailibilityResult ret = new VehicleAvailibilityResult
             {
@@ -174,7 +174,7 @@ namespace LocoSwap
                 // We should determine if the reskin itself exists first
                 Vehicle reskinAsVehicle = new Vehicle(vehicle.ReskinProvider, vehicle.ReskinProduct, vehicle.ReskinBlueprintId, "Reskin");
                 Log.Debug("IsVehicleAvailable: check for reskin {0}", reskinAsVehicle.XmlPath);
-                VehicleAvailibilityResult reskinAvailability = IsVehicleAvailable(reskinAsVehicle);
+                VehicleAvailibilityResult reskinAvailability = IsVehicleAvailable(reskinAsVehicle, context);
                 if (!reskinAvailability.Available)
                 {
                     return ret;
@@ -186,9 +186,21 @@ namespace LocoSwap
             }
             var xmlPath = vehicle.FullXmlPath;
             var binPath = Path.ChangeExtension(xmlPath, "bin");
-            if (File.Exists(binPath))
+
+            if (context.InApFile != AvailableVehicle.Context.IsInApFile.Yes && File.Exists(binPath))
             {
                 ret.Available = true;
+                _vehicleTable[vehicle.XmlPath] = ret;
+                return ret;
+            }
+
+            if (context.InApFile == AvailableVehicle.Context.IsInApFile.Yes)
+            {
+                ret.Available = true;
+                ret.InApFile = true;
+                ret.ApPath = context.ApPath;
+                var baseDir = Path.GetDirectoryName(context.ApPath);
+                ret.PathWithinAp = binPath.Replace(baseDir, "");
                 _vehicleTable[vehicle.XmlPath] = ret;
                 return ret;
             }

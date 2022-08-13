@@ -190,7 +190,7 @@ namespace LocoSwap
                     try
                     {
                         Log.Debug("Try: {0}", binPath);
-                        var vehicle = new AvailableVehicle(binPath);
+                        var vehicle = new AvailableVehicle(binPath, new AvailableVehicle.Context { InApFile = AvailableVehicle.Context.IsInApFile.No });
                         Application.Current.Dispatcher.Invoke(delegate
                         {
                             ViewModel.AvailableVehicles.Add(vehicle);
@@ -229,16 +229,16 @@ namespace LocoSwap
                 foreach (var item in apFiles.Select((value, i) => (value, i)))
                 {
                     Log.Debug("Trying ap file {0}", item.value);
-                    var zipFile = ZipFile.Read(item.value);
-                    var binEntries = zipFile.Where(entry => { return entry.FileName.ToLower().StartsWith("railvehicles/") && entry.FileName.EndsWith(".bin"); }).ToList();
+                    var apFilePath = item.value;
+                    var zipFile = ZipFile.Read(apFilePath);
+                    var binEntries = zipFile.Where(entry => { return entry.FileName.EndsWith(".bin"); }).ToList();
 
-                    if (!binEntries.Any())
-                    {
-                        binEntries = zipFile.Where(entry => { return entry.FileName.EndsWith(".bin"); }).ToList();
-                    }
+                    // entries starting with "railvehicle/" first
+                    binEntries = binEntries.Where(entry => entry.FileName.ToLower().StartsWith("railvehicles/")).Concat(
+                        binEntries.Where(entry => entry.FileName.ToLower().StartsWith("railvehicles/"))).ToList();
 
                     var baseProgress = (int)Math.Ceiling((float)item.i / apFiles.Count() * 100);
-                    var basePath = Path.GetDirectoryName(item.value).Replace(Settings.Default.TsPath + "\\Assets\\", "");
+                    var basePath = Path.GetDirectoryName(apFilePath).Replace(Settings.Default.TsPath + "\\Assets\\", "");
                     var binCount = binEntries.Count();
                     Log.Debug("There are {0} bin entries", binCount);
                     Parallel.ForEach(binEntries.Select((value, i) => (value, i)), (binItem) =>
@@ -248,7 +248,13 @@ namespace LocoSwap
                         try
                         {
                             Log.Debug("Try {0}", binPath);
-                            var vehicle = new AvailableVehicle(binPath);
+                            var context = new AvailableVehicle.Context { 
+                                InApFile = AvailableVehicle.Context.IsInApFile.Yes,
+                                ZipEntry = binEntry,
+                                ApPath = apFilePath,
+                                ZipFile = zipFile
+                            };
+                            var vehicle = new AvailableVehicle(binPath, context);
                             App.Current.Dispatcher.Invoke((Action)delegate
                             {
                                 ViewModel.AvailableVehicles.Add(vehicle);
@@ -447,7 +453,8 @@ namespace LocoSwap
             ScenarioVehicle vehicle = (ScenarioVehicle)VehicleListBox.SelectedItem;
             try
             {
-                AvailableVehicle actualVehicle = new AvailableVehicle(Path.ChangeExtension(vehicle.XmlPath, "bin"));
+                var binPath = Path.ChangeExtension(vehicle.XmlPath, "bin");
+                AvailableVehicle actualVehicle = new AvailableVehicle(binPath, new AvailableVehicle.Context());
                 list = actualVehicle.NumberingList;
             }
             catch (Exception)
@@ -607,7 +614,7 @@ namespace LocoSwap
                 var binPath = Path.ChangeExtension(item.NewXmlPath, "bin");
                 try
                 {
-                    availableVehicles[item.NewXmlPath] = new AvailableVehicle(binPath);
+                    availableVehicles[item.NewXmlPath] = new AvailableVehicle(binPath, new AvailableVehicle.Context());
                 }
                 catch (Exception)
                 {

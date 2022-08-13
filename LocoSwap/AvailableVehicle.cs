@@ -41,7 +41,7 @@ namespace LocoSwap
             set => SetProperty(ref _nameLocalisedString, value);
         }
 
-        public AvailableVehicle(string binPath, bool acceptReskin = true)
+        public AvailableVehicle(string binPath, Context context)
         {
             string[] binPathComponents = binPath.Split('\\');
             Provider = binPathComponents[0];
@@ -49,7 +49,7 @@ namespace LocoSwap
             BlueprintId = Path.ChangeExtension(string.Join("\\", binPathComponents.Skip(2)), "xml");
             Exists = VehicleExistance.Found;
 
-            VehicleAvailibilityResult selfAvalibility = VehicleAvailibility.IsVehicleAvailable(this);
+            VehicleAvailibilityResult selfAvalibility = VehicleAvailibility.IsVehicleAvailable(this, context);
             if (!selfAvalibility.Available)
             {
                 throw new Exception("Unable to load vehicle: bin file not found");
@@ -111,7 +111,7 @@ namespace LocoSwap
                 Type = VehicleType.Tender;
             else
             {
-                if (!acceptReskin)
+                if (!context.AcceptReskin)
                 {
                     throw new Exception("Reskin found but not accepted!");
                 }
@@ -137,7 +137,7 @@ namespace LocoSwap
                 string mainVehicleBinPath = Path.ChangeExtension(XmlPath, "bin");
                 try
                 {
-                    AvailableVehicle mainVehicle = new AvailableVehicle(mainVehicleBinPath, false);
+                    AvailableVehicle mainVehicle = new AvailableVehicle(mainVehicleBinPath, new Context { AcceptReskin = false });
                     Type = mainVehicle.Type;
                     EntityCount = mainVehicle.EntityCount;
                     CargoComponents = mainVehicle.CargoComponents;
@@ -183,6 +183,16 @@ namespace LocoSwap
             {
                 NumberingList = new List<string>();
             }
+        }
+
+        public class Context {
+            public enum IsInApFile { Unknown, Yes, No }
+
+            public ZipFile ZipFile { get; set; }
+            public ZipEntry ZipEntry { get; set; }
+            public IsInApFile InApFile { get; set; } = IsInApFile.Unknown;
+            public bool AcceptReskin { get; set; } = true;
+            public string ApPath { get; internal set; }
         }
     }
 }

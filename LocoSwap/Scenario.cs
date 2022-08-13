@@ -190,7 +190,7 @@ namespace LocoSwap
 
                 foreach (var vehicle in consist.Vehicles)
                 {
-                    VehicleAvailibilityResult abilility = VehicleAvailibility.IsVehicleAvailable(vehicle);
+                    VehicleAvailibilityResult abilility = VehicleAvailibility.IsVehicleAvailable(vehicle, new AvailableVehicle.Context());
                     if (abilility.Available)
                     {
                         if (vehicle.DisplayName != "") continue;
