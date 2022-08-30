@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -72,6 +73,10 @@ namespace LocoSwap
             public ObservableCollection<AvailableVehicle> AvailableVehicles { get; set; } = new ObservableCollection<AvailableVehicle>();
 
         }
+
+        private bool didPressEnter = false;
+        private string searchTerm = "";
+        private DateTime lastSearch = DateTime.Now;
 
         private string RouteId;
         private string ScenarioId;
@@ -149,6 +154,27 @@ namespace LocoSwap
             DirectoryItem selected = tvi.Header as DirectoryItem;
             selected.PopulateSubDirectories();
 
+            ItemsControl parent = ParentContainerFromItem(DirectoryTree, selected);
+
+            int index;
+            if (parent is TreeViewItem)
+            {
+                index = parent.Items.IndexOf(selected);
+                if (index >= 0 && index + 1 < parent.Items.Count)
+                {
+                    TreeViewItem childTvi = parent.ItemContainerGenerator.ContainerFromItem(parent.Items[index + 1]) as TreeViewItem;
+                    childTvi.BringIntoView();
+                }
+            }
+            else
+            {
+                index = DirectoryTree.Items.IndexOf(selected);
+                if (index >= 0 && index + 1 < DirectoryTree.Items.Count)
+                {
+                    TreeViewItem childTvi = DirectoryTree.ItemContainerGenerator.ContainerFromItem(DirectoryTree.Items[index + 1]) as TreeViewItem;
+                    childTvi.BringIntoView();
+                }
+            }
             tvi.BringIntoView();
         }
 
@@ -191,6 +217,7 @@ namespace LocoSwap
                     {
                         Log.Debug("Try: {0}", binPath);
                         var vehicle = new AvailableVehicle(binPath, new AvailableVehicle.Context { InApFile = AvailableVehicle.Context.IsInApFile.No });
+                        if (vehicle.Type == VehicleType.PreloadFragment) return;
                         Application.Current.Dispatcher.Invoke(delegate
                         {
                             ViewModel.AvailableVehicles.Add(vehicle);
@@ -233,9 +260,13 @@ namespace LocoSwap
                     var zipFile = ZipFile.Read(apFilePath);
                     var binEntries = zipFile.Where(entry => { return entry.FileName.EndsWith(".bin"); }).ToList();
 
-                    // entries starting with "railvehicle/" first
+                    // entries starting with "railvehicle/" or preload/ first
                     binEntries = binEntries.Where(entry => entry.FileName.ToLower().StartsWith("railvehicles/")).Concat(
-                        binEntries.Where(entry => entry.FileName.ToLower().StartsWith("railvehicles/"))).ToList();
+                        binEntries.Where(entry => entry.FileName.ToLower().StartsWith("preload/"))
+                    ).Concat(
+                        binEntries.Where(entry => !entry.FileName.ToLower().StartsWith("railvehicles/") 
+                            && !entry.FileName.ToLower().StartsWith("preload/"))
+                    ).ToList();
 
                     var baseProgress = (int)Math.Ceiling((float)item.i / apFiles.Count() * 100);
                     var basePath = Path.GetDirectoryName(apFilePath).Replace(Settings.Default.TsPath + "\\Assets\\", "");
@@ -289,34 +320,65 @@ namespace LocoSwap
 
         private void InsertButton_Click(bool after)
         {
-            if (AvailableVehicleListBox.SelectedItem == null || VehicleListBox.SelectedItem == null)
+            try
             {
-                MessageBox.Show(
-                    LocoSwap.Language.Resources.msg_no_vehicle_selected,
-                    LocoSwap.Language.Resources.msg_message,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (AvailableVehicleListBox.SelectedItem == null || VehicleListBox.SelectedItem == null)
+                {
+                    MessageBox.Show(
+                        LocoSwap.Language.Resources.msg_no_vehicle_selected,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var insertIndex = after ? (VehicleListBox.SelectedIndex + 1) : VehicleListBox.SelectedIndex;
+
+                Consist consist = (Consist)ConsistListBox.SelectedItem;
+                AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
+
+                if (newVehicle.Type == VehicleType.Preload)
+                {
+                    var vehicles = newVehicle.PreloadVehicles;
+                    vehicles.Reverse();
+
+                    foreach (var newVehicleInConsist in vehicles)
+                    {
+                        var vehicle = ViewModel.Scenario.InsertVehicle(consist.Idx, insertIndex, newVehicleInConsist.Item1);
+                        ViewModel.Scenario.ChangeVehicleFlipped(consist.Idx, insertIndex, newVehicleInConsist.Item2);
+                        consist.Vehicles.Insert(insertIndex, vehicle);
+
+                        for (var i = 0; i < consist.Vehicles.Count; i++)
+                        {
+                            consist.Vehicles[i].Idx = i;
+                        }
+                    }
+                } else
+                {
+                    var vehicle = ViewModel.Scenario.InsertVehicle(consist.Idx, insertIndex, newVehicle);
+                    consist.Vehicles.Insert(insertIndex, vehicle);
+
+                    for (var i = 0; i < consist.Vehicles.Count; i++)
+                    {
+                        consist.Vehicles[i].Idx = i;
+                    }
+                }
+
+                ViewModel.Vehicles.Clear();
+                foreach (ScenarioVehicle scenarioVehicle in ((Consist)ConsistListBox.SelectedItem).Vehicles)
+                {
+                    ViewModel.Vehicles.Add(scenarioVehicle);
+                }
+
                 return;
             }
-
-            var insertIndex = after ? (VehicleListBox.SelectedIndex + 1) : VehicleListBox.SelectedIndex;
-
-            Consist consist = (Consist)ConsistListBox.SelectedItem;
-            AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
-
-            ScenarioVehicle vehicle = ViewModel.Scenario.InsertVehicle(consist.Idx, insertIndex, newVehicle);
-            consist.Vehicles.Insert(insertIndex, vehicle);
-            for (var i = 0; i < consist.Vehicles.Count; i++)
+            catch (Exception error)
             {
-                consist.Vehicles[i].Idx = i;
+                MessageBox.Show(
+                    error.Message,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
             }
-
-            ViewModel.Vehicles.Clear();
-            foreach (ScenarioVehicle scenarioVehicle in ((Consist)ConsistListBox.SelectedItem).Vehicles)
-            {
-                ViewModel.Vehicles.Add(scenarioVehicle);
-            }
-
-            return;
         }
 
         private void InsertBeforeButton_Click(object sender, RoutedEventArgs e)
@@ -331,69 +393,159 @@ namespace LocoSwap
 
         private void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            if (VehicleListBox.SelectedItems.Count == 0)
+            try
             {
-                MessageBox.Show(
-                    LocoSwap.Language.Resources.msg_no_vehicle_selected,
-                    LocoSwap.Language.Resources.msg_message,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            Consist consist = (Consist)ConsistListBox.SelectedItem;
-
-            if (consist.Vehicles.Count == VehicleListBox.SelectedItems.Count)
-            {
-                MessageBox.Show(
-                    LocoSwap.Language.Resources.msg_consist_empty,
-                    LocoSwap.Language.Resources.msg_message,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            foreach (ScenarioVehicle vehicle in VehicleListBox.SelectedItems)
-            {
-                ViewModel.Scenario.RemoveVehicle(consist.Idx, vehicle.Idx);
-                consist.Vehicles.RemoveAt(vehicle.Idx);
-                for (var i = 0; i < consist.Vehicles.Count; i++)
+                if (VehicleListBox.SelectedItems.Count == 0)
                 {
-                    consist.Vehicles[i].Idx = i;
+                    MessageBox.Show(
+                        LocoSwap.Language.Resources.msg_no_vehicle_selected,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Consist consist = (Consist)ConsistListBox.SelectedItem;
+
+                if (consist.Vehicles.Count == VehicleListBox.SelectedItems.Count)
+                {
+                    MessageBox.Show(
+                        LocoSwap.Language.Resources.msg_consist_empty,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                foreach (ScenarioVehicle vehicle in VehicleListBox.SelectedItems)
+                {
+                    ViewModel.Scenario.RemoveVehicle(consist.Idx, vehicle.Idx);
+                    consist.Vehicles.RemoveAt(vehicle.Idx);
+                    for (var i = 0; i < consist.Vehicles.Count; i++)
+                    {
+                        consist.Vehicles[i].Idx = i;
+                    }
+                }
+
+                ViewModel.Vehicles.Clear();
+                foreach (ScenarioVehicle scenarioVehicle in ((Consist)ConsistListBox.SelectedItem).Vehicles)
+                {
+                    ViewModel.Vehicles.Add(scenarioVehicle);
                 }
             }
-
-            ViewModel.Vehicles.Clear();
-            foreach (ScenarioVehicle scenarioVehicle in ((Consist)ConsistListBox.SelectedItem).Vehicles)
+            catch (Exception error)
             {
-                ViewModel.Vehicles.Add(scenarioVehicle);
+                MessageBox.Show(
+                    error.Message,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
             }
         }
 
         private void ReplaceButton_Click(object sender, RoutedEventArgs e)
         {
-            if (VehicleListBox.SelectedItems.Count == 0 || AvailableVehicleListBox.SelectedItem == null)
+            try
+            {
+                if (VehicleListBox.SelectedItems.Count == 0 || AvailableVehicleListBox.SelectedItem == null)
+                {
+                    MessageBox.Show(
+                        LocoSwap.Language.Resources.msg_no_vehicle_selected,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                Consist consist = (Consist)ConsistListBox.SelectedItem;
+                List<ScenarioVehicle> oldVehicles = VehicleListBox.SelectedItems.Cast<ScenarioVehicle>().ToList();
+                AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
+
+                if (newVehicle.Type == VehicleType.Preload)
+                {
+                    var newVehicles = newVehicle.PreloadVehicles.ToList();
+
+                    if (oldVehicles.Count == 1)
+                    {
+                        ViewModel.Scenario.RemoveVehicle(consist.Idx, oldVehicles[0].Idx);
+                        consist.Vehicles.RemoveAt(oldVehicles[0].Idx);
+                        for (var i = 0; i < consist.Vehicles.Count; i++)
+                        {
+                            consist.Vehicles[i].Idx = i;
+                        }
+                        foreach (var newVehicleInConist in newVehicles)
+                        {
+                            var insertIndex = oldVehicles[0].Idx;
+                            var vehicle = ViewModel.Scenario.InsertVehicle(consist.Idx, insertIndex, newVehicleInConist.Item1);
+                            vehicle.Flipped = newVehicleInConist.Item2;
+                            consist.Vehicles.Insert(insertIndex, vehicle);
+                            if (vehicle.Flipped)
+                            {
+                                Log.Debug("consist {0}, vehicle {1}, flipped = {2}", consist.Idx, vehicle.Idx, vehicle.Flipped);
+                                ViewModel.Scenario.ChangeVehicleFlipped(consist.Idx, vehicle.Idx, vehicle.Flipped);
+                            }
+
+                            for (var i = 0; i < consist.Vehicles.Count; i++)
+                            {
+                                consist.Vehicles[i].Idx = i;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < oldVehicles.Count; i++)
+                        {
+                            if (i >= newVehicles.Count)
+                            {
+                                ViewModel.Scenario.RemoveVehicle(consist.Idx, oldVehicles[0].Idx);
+                                consist.Vehicles.RemoveAt(oldVehicles[0].Idx);
+                                for (var j = 0; j < consist.Vehicles.Count; j++)
+                                {
+                                    consist.Vehicles[j].Idx = j;
+                                }
+                                continue;
+                            }
+
+                            var oldVehicle = oldVehicles[i];
+                            var newVehicleInConist = newVehicles[i].Item1;
+                            var flipped = newVehicles[i].Item2;
+                            oldVehicle.CopyFrom(newVehicleInConist);
+                            ViewModel.Scenario.ReplaceVehicle(consist.Idx, oldVehicle.Idx, newVehicleInConist);
+                            ViewModel.Scenario.ChangeVehicleNumber(consist.Idx, oldVehicle.Idx, oldVehicle.Number);
+                            consist.Vehicles[i].Flipped = flipped;
+                            if (flipped) { 
+                                Log.Debug("consist {0}, vehicle {1}, flipped = {2}", consist.Idx, oldVehicle.Idx, flipped);
+                                ViewModel.Scenario.ChangeVehicleFlipped(consist.Idx, oldVehicle.Idx, flipped);
+                            }
+
+                            for (var j = 0; j < consist.Vehicles.Count; j++)
+                            {
+                                consist.Vehicles[j].Idx = j;
+                            }
+                        }
+                    }
+                } 
+                else
+                {
+                    foreach (var vehicle in oldVehicles)
+                    {
+                        vehicle.CopyFrom(newVehicle);
+                        ViewModel.Scenario.ReplaceVehicle(consist.Idx, vehicle.Idx, newVehicle);
+                        ViewModel.Scenario.ChangeVehicleNumber(consist.Idx, vehicle.Idx, vehicle.Number);
+                    }
+                }
+
+                consist.DetermineCompletenessAfterReplace();
+
+                MessageBox.Show(
+                    LocoSwap.Language.Resources.msg_swap_completed,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            } 
+            catch(Exception error)
             {
                 MessageBox.Show(
-                    LocoSwap.Language.Resources.msg_no_vehicle_selected,
+                    error.Message,
                     LocoSwap.Language.Resources.msg_message,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            Consist consist = (Consist)ConsistListBox.SelectedItem;
-            IEnumerable<ScenarioVehicle> oldVehicles = VehicleListBox.SelectedItems.Cast<ScenarioVehicle>();
-            AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
-
-            foreach (var vehicle in oldVehicles)
-            {
-                vehicle.CopyFrom(newVehicle);
-                ViewModel.Scenario.ReplaceVehicle(consist.Idx, vehicle.Idx, newVehicle);
-                ViewModel.Scenario.ChangeVehicleNumber(consist.Idx, vehicle.Idx, vehicle.Number);
-            }
-            consist.DetermineCompletenessAfterReplace();
-
-            MessageBox.Show(
-                LocoSwap.Language.Resources.msg_swap_completed,
-                LocoSwap.Language.Resources.msg_message,
-                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private async void SaveScenario()
@@ -480,41 +632,52 @@ namespace LocoSwap
 
         private void ReplaceIdenticalButton_Click(object sender, RoutedEventArgs e)
         {
-            if (VehicleListBox.SelectedItems.Count == 0 || AvailableVehicleListBox.SelectedItem == null)
+            try
             {
-                MessageBox.Show(
-                    LocoSwap.Language.Resources.msg_no_vehicle_selected,
-                    LocoSwap.Language.Resources.msg_message,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            Dictionary<string, bool> identicalXmlPathList = new Dictionary<string, bool>();
-            foreach (ScenarioVehicle vehicle in VehicleListBox.SelectedItems)
-            {
-                identicalXmlPathList[vehicle.XmlPath] = true;
-            }
-
-            AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
-
-            foreach (Consist consist in ViewModel.Consists)
-            {
-                foreach (ScenarioVehicle vehicle in consist.Vehicles)
+                if (VehicleListBox.SelectedItems.Count == 0 || AvailableVehicleListBox.SelectedItem == null)
                 {
-                    if (identicalXmlPathList.ContainsKey(vehicle.XmlPath))
+                    MessageBox.Show(
+                        LocoSwap.Language.Resources.msg_no_vehicle_selected,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Dictionary<string, bool> identicalXmlPathList = new Dictionary<string, bool>();
+                foreach (ScenarioVehicle vehicle in VehicleListBox.SelectedItems)
+                {
+                    identicalXmlPathList[vehicle.XmlPath] = true;
+                }
+
+                AvailableVehicle newVehicle = (AvailableVehicle)AvailableVehicleListBox.SelectedItem;
+
+                foreach (Consist consist in ViewModel.Consists)
+                {
+                    foreach (ScenarioVehicle vehicle in consist.Vehicles)
                     {
-                        vehicle.CopyFrom(newVehicle);
-                        ViewModel.Scenario.ReplaceVehicle(consist.Idx, vehicle.Idx, newVehicle);
-                        ViewModel.Scenario.ChangeVehicleNumber(consist.Idx, vehicle.Idx, vehicle.Number);
-                        consist.DetermineCompletenessAfterReplace();
+                        if (identicalXmlPathList.ContainsKey(vehicle.XmlPath))
+                        {
+                            vehicle.CopyFrom(newVehicle);
+                            ViewModel.Scenario.ReplaceVehicle(consist.Idx, vehicle.Idx, newVehicle);
+                            ViewModel.Scenario.ChangeVehicleNumber(consist.Idx, vehicle.Idx, vehicle.Number);
+                            consist.DetermineCompletenessAfterReplace();
+                        }
                     }
                 }
-            }
 
-            MessageBox.Show(
-                LocoSwap.Language.Resources.msg_swap_completed,
-                LocoSwap.Language.Resources.msg_message,
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    LocoSwap.Language.Resources.msg_swap_completed,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(
+                    error.Message,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
         }
 
         private void CancelScanningButton_Click(object sender, RoutedEventArgs e)
@@ -701,25 +864,134 @@ namespace LocoSwap
             window.ShowDialog();
         }
 
-        private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        public DependencyObject ContainerFromItem(ItemsControl itemsControl, object value)
         {
-            if (e.Key >= Key.A && e.Key <= Key.Z)
-            {
-                int index = e.Key - Key.A;
-                char ch = 'a';
-                ch += (char)index;
+            var dp = itemsControl.ItemContainerGenerator.ContainerFromItem(value);
 
-                foreach (DirectoryItem dir in DirectoryTree.Items)
+            if (dp != null)
+                return dp;
+
+            foreach (var item in itemsControl.Items)
+            {
+                var currentTreeViewItem = itemsControl.ItemContainerGenerator.ContainerFromItem(item);
+
+                if (currentTreeViewItem is ItemsControl == false)
                 {
-                    if (dir.Name.ToLower()[0] == ch)
-                    {
-                        dir.IsSelected = true;
-                        TreeViewItem tvi = DirectoryTree.ItemContainerGenerator.ContainerFromItem(dir) as TreeViewItem;
-                        tvi.BringIntoView();
-                        break;
-                    }
+                    continue;
+                }
+
+                var childDp = ContainerFromItem(currentTreeViewItem as ItemsControl, value);
+
+                if (childDp != null)
+                    return childDp;
+            }
+            return null;
+        }
+
+        public ItemsControl ParentContainerFromItem(ItemsControl parent, DirectoryItem child)
+        {
+            if (parent.Items.Contains(child))
+                return parent;
+
+            foreach (DirectoryItem directoryItem in parent.Items)
+            {
+                DependencyObject item = parent.ItemContainerGenerator.ContainerFromItem(directoryItem);
+                if (item is ItemsControl == false) continue;
+                ItemsControl result = ParentContainerFromItem(item as ItemsControl, child);
+                if (result != null) return result;
+            }
+            return null;
+        }
+
+        private void DirectoryTree_TextInput(object sender, TextCompositionEventArgs e)
+        {
+            var selectedItem = DirectoryTree.SelectedItem as DirectoryItem;
+            TreeViewItem selectedTvi = selectedItem != null
+                ? ContainerFromItem(DirectoryTree, selectedItem) as TreeViewItem
+                : null;
+
+            if (e.Text == "\b")
+            {
+                if (selectedItem == null)
+                {
+                    return;
+                }
+                selectedTvi.IsExpanded = false;
+
+                return;
+
+            }
+            if (e.Text == "\r")
+            {
+                if (selectedItem == null) {
+                    return;
+                }
+
+                didPressEnter = true;
+
+                // expand, select and show sub directories
+                selectedItem.PopulateSubDirectories();
+                selectedTvi.IsSelected = true;
+                selectedItem.IsSelected = true;
+                selectedTvi.IsExpanded = true;
+
+                return;
+            }
+
+            if ((DateTime.Now - lastSearch).Seconds > 1)
+            {
+                searchTerm = "";
+            }
+
+            lastSearch = DateTime.Now;
+            searchTerm += e.Text;
+
+            List<DirectoryItem> searchItems;
+
+            if (selectedItem == null)
+            {
+                searchItems = DirectoryTree.Items.Cast<DirectoryItem>().ToList();
+            } 
+            else if (didPressEnter)
+            {
+                searchItems = selectedTvi.Items.Cast<DirectoryItem>().ToList();
+            }
+            else
+            {
+                ItemsControl parent = ParentContainerFromItem(DirectoryTree, selectedItem);
+
+                if (parent is TreeViewItem)
+                {
+                    searchItems = (parent as TreeViewItem).Items.Cast<DirectoryItem>().ToList();
+                }
+                else
+                {
+                    searchItems = DirectoryTree.Items.Cast<DirectoryItem>().ToList();
                 }
             }
+
+            var firstItem = searchItems.FirstOrDefault(item => item.Name.StartsWith(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+            if (firstItem == null)
+            {
+                searchTerm = e.Text;
+                firstItem = searchItems.FirstOrDefault(item => item.Name.StartsWith(searchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (firstItem != null)
+            {
+                TreeViewItem firstItemTvi = ContainerFromItem(DirectoryTree, firstItem) as TreeViewItem;
+                firstItem.IsSelected = true;
+                firstItemTvi.IsSelected = true;
+                firstItemTvi.BringIntoView();
+            }
+
+            didPressEnter = false;
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+
         }
     }
 

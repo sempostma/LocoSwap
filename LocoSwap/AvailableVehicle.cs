@@ -41,6 +41,95 @@ namespace LocoSwap
             set => SetProperty(ref _nameLocalisedString, value);
         }
 
+        public List<Tuple<AvailableVehicle, bool>> PreloadVehicles
+        {
+            get
+            {
+                if (Type != VehicleType.Preload && Type != VehicleType.PreloadFragment) throw new Exception("Can only get preload vehicles from a vehicle that is of type 'Preload'");
+
+                VehicleAvailibilityResult selfAvalibility = VehicleAvailibility.IsVehicleAvailable(this, new Context());
+                if (!selfAvalibility.Available)
+                {
+                    throw new Exception("Unable to load vehicle: bin file not found");
+                }
+
+                string actualBinPath = Path.Combine(Properties.Settings.Default.TsPath, "Assets", PreloadBinPath);
+                if (selfAvalibility.InApFile)
+                {
+                    var zipFile = ZipFile.Read(selfAvalibility.ApPath);
+                    var binEntry = zipFile.Where(entry => entry.FileName == selfAvalibility.PathWithinAp).FirstOrDefault();
+                    if (binEntry == null)
+                    {
+                        throw new Exception("Unable to load vehicle: bin file not found within .ap file");
+                    }
+                    var baseName = Path.GetFileNameWithoutExtension(selfAvalibility.PathWithinAp);
+                    var tempName = string.Format("{0}-{1}.bin", baseName, Utilities.StaticRandom.Instance.Next(10000, 99999));
+                    actualBinPath = Path.Combine(Utilities.GetTempDir(), tempName);
+                    Utilities.RemoveFile(actualBinPath);
+                    using (var fileStream = new FileStream(actualBinPath, FileMode.Create))
+                    {
+                        binEntry.Extract(fileStream);
+                        fileStream.Flush();
+                        fileStream.Close();
+                    }
+                    Log.Debug("Extract to {0}", actualBinPath);
+                }
+
+                XDocument document;
+                try
+                {
+                    document = TsSerializer.Load(actualBinPath);
+                }
+                catch (Exception e)
+                {
+                    Log.Debug("Failed to load vehicle blueprint: {0}", e);
+                    throw new Exception("Failed to load vehicle blueprint");
+                }
+                XElement blueprint = document.Root.Descendants().FirstOrDefault(item => item.Name == "cConsistBlueprint" || item.Name == "cConsistFragmentBlueprint");
+
+                var vehicles = new List<Tuple<AvailableVehicle, bool>>();
+
+                blueprint.Descendants("cConsistEntry").Select(consist =>
+                {
+                    var pathToBluePrint = Path.Combine(
+                        consist.Descendants("Provider").First().Value,
+                        consist.Descendants("Product").First().Value,
+                        consist.Descendants("BlueprintID").First().Value
+                    );
+                    var flipped = consist.Descendants("Flipped").First().Value == "eTrue";
+                    var binFile = Path.ChangeExtension(pathToBluePrint, "bin");
+                    var vehicle = new AvailableVehicle(binFile, new Context());
+
+
+                    if (vehicle.Type == VehicleType.PreloadFragment)
+                    {
+                        // possibly flip
+                        var fragmentVehicles = vehicle.PreloadVehicles.Select(preloadVehicle =>
+                        {
+                            if (flipped)
+                            {
+                                return new Tuple<AvailableVehicle, bool>(preloadVehicle.Item1, !preloadVehicle.Item2);
+                            }
+                            else
+                            {
+                                return preloadVehicle;
+                            }
+                        });
+                        vehicles.AddRange(fragmentVehicles);
+                    } else
+                    {
+                        vehicles.Add(new Tuple<AvailableVehicle, bool>(vehicle, flipped));
+                    }
+
+                    return false;
+                }).ToList();
+
+                return vehicles;
+            }
+        }
+
+        public string PreloadBinPath { get; private set; }
+
         public AvailableVehicle(string binPath, Context context)
         {
             string[] binPathComponents = binPath.Split('\\');
@@ -88,19 +177,31 @@ namespace LocoSwap
                 throw new Exception("Failed to load vehicle blueprint");
             }
             IEnumerable<XElement> blueprints = from item in document.Root.Descendants()
-                                               where item.Name == "cEngineBlueprint" || item.Name == "cWagonBlueprint" || item.Name == "cReskinBlueprint" || item.Name == "cTenderBlueprint"
+                                               where item.Name == "cConsistBlueprint" 
+                                                || item.Name == "cEngineBlueprint" 
+                                                || item.Name == "cWagonBlueprint" 
+                                                || item.Name == "cReskinBlueprint" 
+                                                || item.Name == "cTenderBlueprint"
+                                                || item.Name == "cConsistFragmentBlueprint"
                                                select item;
             XElement blueprint = blueprints.FirstOrDefault();
             if (blueprint == null)
             {
                 throw new Exception("The blueprint is not an engine, wagen or reskin");
             }
-            Name = blueprint.Element("Name").Value;
+            if (blueprint.Name == "cConsistBlueprint")
+            {
+                Name = blueprint.Element("DisplayName").Value + " Preload";
+            }
+            else
+            {
+                Name = blueprint.Element("Name").Value;
+            }
 
             DisplayName = Name;
-            XElement displayNameNode = document.Root.Descendants("DisplayName").Elements("Localisation-cUserLocalisedString").First();
-            _nameLocalisedString = document.Root.Descendants("DisplayName").Elements("Localisation-cUserLocalisedString").First();
-            var preferredDisplayName = Utilities.DetermineDisplayName(displayNameNode);
+            XElement displayNameNode = document.Root.Descendants("DisplayName").Elements("Localisation-cUserLocalisedString").FirstOrDefault();
+            _nameLocalisedString = document.Root.Descendants("DisplayName").Elements("Localisation-cUserLocalisedString").FirstOrDefault();
+            var preferredDisplayName = displayNameNode != null ? Utilities.DetermineDisplayName(displayNameNode) : "Unknown";
             if (preferredDisplayName != "") DisplayName = preferredDisplayName;
 
             if (blueprint.Name == "cEngineBlueprint")
@@ -109,6 +210,15 @@ namespace LocoSwap
                 Type = VehicleType.Wagon;
             else if (blueprint.Name == "cTenderBlueprint")
                 Type = VehicleType.Tender;
+            else if (blueprint.Name == "cConsistBlueprint") {
+                Type = VehicleType.Preload;
+                PreloadBinPath = binPath;
+            }
+            else if (blueprint.Name == "cConsistFragmentBlueprint")
+            {
+                Type = VehicleType.PreloadFragment;
+                PreloadBinPath = binPath;
+            }
             else
             {
                 if (!context.AcceptReskin)

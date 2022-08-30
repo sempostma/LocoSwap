@@ -1,9 +1,11 @@
-﻿using Serilog;
+﻿using Ionic.Zip;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -68,20 +70,50 @@ namespace LocoSwap
         public static string[] ListAllScenarios(string routeId)
         {
             var routeDirectory = Route.GetRouteDirectory(routeId);
-            if (!Directory.Exists(routeDirectory) || !Directory.Exists(GetScenariosDirectory(routeId)))
+            var apFiles = Directory.GetFiles(routeDirectory, "*.ap", SearchOption.TopDirectoryOnly);
+            if (!Directory.Exists(routeDirectory))
             {
                 return new string[] { };
             }
             List<string> ret = new List<string>();
-            var scenarioDirectories = Directory.GetDirectories(GetScenariosDirectory(routeId));
-            foreach (var directory in scenarioDirectories)
+
+            var scenariosDirectory = GetScenariosDirectory(routeId);
+            if (Directory.Exists(scenariosDirectory))
             {
-                string id = new DirectoryInfo(directory).Name;
-                string xmlPath = Path.Combine(directory, "ScenarioProperties.xml");
-                string binPath = Path.Combine(directory, "Scenario.bin");
-                if (!File.Exists(xmlPath) || !File.Exists(binPath)) continue;
-                ret.Add(id);
+                var scenarioDirectories = Directory.GetDirectories(scenariosDirectory);
+                foreach (var directory in scenarioDirectories)
+                {
+                    string id = new DirectoryInfo(directory).Name;
+                    string xmlPath = Path.Combine(directory, "ScenarioProperties.xml");
+                    string binPath = Path.Combine(directory, "Scenario.bin");
+                    if (!File.Exists(xmlPath) || !File.Exists(binPath)) continue;
+                    ret.Add(id);
+                }
             }
+
+            foreach (var ap in apFiles)
+            {
+                try
+                {
+                    var zipFile = ZipFile.Read(ap);
+                    var apScenarioDirectories = zipFile.Where(entry => Regex.IsMatch(entry.FileName, @"^Scenarios/[a-f0-9\-]+/$")).ToList();
+                    foreach (var apScenarioDirectory in apScenarioDirectories)
+                    {
+                        string id = Path.GetFileName(Path.GetDirectoryName(apScenarioDirectory.FileName));
+                        var xmlPath = zipFile.Where(entry => entry.FileName.StartsWith("Scenarios/" + id + "/ScenarioProperties.xml")).FirstOrDefault();
+                        var binPath = zipFile.Where(entry => entry.FileName.StartsWith("Scenarios/" + id + "/Scenario.bin")).FirstOrDefault();
+                        if (xmlPath == null || binPath == null) continue;
+                        xmlPath.Extract();
+                        binPath.Extract();
+                        ret.Add(id);
+                    }
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+
             return ret.ToArray();
         }
 

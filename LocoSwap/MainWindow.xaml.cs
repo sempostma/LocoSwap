@@ -3,7 +3,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,9 +20,13 @@ namespace LocoSwap
         public ObservableCollection<Route> Routes { get; } = new ObservableCollection<Route>();
         public ObservableCollection<Scenario> Scenarios { get; } = new ObservableCollection<Scenario>();
         public string WindowTitle { get; set; } = "LocoSwap";
+
+        public Task clearCacheTask = Task.CompletedTask;
         public MainWindow()
         {
             InitializeComponent();
+
+            LoadingProgressBar.Visibility = Visibility.Hidden;
 
             this.DataContext = this;
             this.WindowTitle = "LocoSwap " + Assembly.GetEntryAssembly().GetName().Version.ToString();
@@ -114,5 +120,60 @@ namespace LocoSwap
                 editWindow.Show();
             }
         }
+
+        private void Button_Click_2(object sender, RoutedEventArgs e)
+        {
+            // clear ts cache
+
+            string assetsFolder = Path.Combine(Properties.Settings.Default.TsPath, "Assets");
+
+            if (!clearCacheTask.IsCompleted && !clearCacheTask.IsFaulted)
+            {
+                MessageBox.Show(LocoSwap.Language.Resources.delete_cache_task_not_finished, LocoSwap.Language.Resources.delete_cache_task_not_finished, MessageBoxButton.OK, MessageBoxImage.Information);
+
+                return;
+            }
+
+            LoadingProgressBar.Visibility = Visibility.Visible;
+
+            IProgress<int> progress = new Progress<int>(value => { LoadingProgressBar.Value = 100f - 90f / (1f + value / 10f); });
+
+            clearCacheTask = Task.Run(() =>
+            {
+                try
+                {
+                    int i = 0;
+                    progress.Report(0);
+
+                    foreach (var pakFile in Directory.GetFiles(assetsFolder, "*.pak", SearchOption.AllDirectories))
+                    {
+                        File.Delete(pakFile);
+                        progress.Report(i++);
+                    }
+
+                    Application.Current.Dispatcher.Invoke(delegate
+                    {
+                        LoadingProgressBar.Visibility = Visibility.Hidden;
+
+                        MessageBox.Show(LocoSwap.Language.Resources.removed_cache, LocoSwap.Language.Resources.removed_cache, MessageBoxButton.OK, MessageBoxImage.Information);
+                    });
+                } catch(Exception error)
+                {
+                    Application.Current.Dispatcher.Invoke(delegate
+                    {
+                        LoadingProgressBar.Visibility = Visibility.Hidden;
+
+                        MessageBox.Show(
+                        error.Message,
+                        LocoSwap.Language.Resources.msg_message,
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+
+                        return;
+                    });
+
+                }
+            });
+        }
+
     }
 }

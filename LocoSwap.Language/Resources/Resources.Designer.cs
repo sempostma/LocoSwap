@@ -115,6 +115,15 @@ namespace LocoSwap.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Clear cache.
+        /// </summary>
+        public static string clear_ts_cache {
+            get {
+                return ResourceManager.GetString("clear_ts_cache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Clear.
         /// </summary>
         public static string clear_vehicles {
@@ -122,7 +131,7 @@ namespace LocoSwap.Language {
                 return ResourceManager.GetString("clear_vehicles", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Close.
         /// </summary>
@@ -147,6 +156,15 @@ namespace LocoSwap.Language {
         public static string delete {
             get {
                 return ResourceManager.GetString("delete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Previous task not finished.
+        /// </summary>
+        public static string delete_cache_task_not_finished {
+            get {
+                return ResourceManager.GetString("delete_cache_task_not_finished", resourceCulture);
             }
         }
         
@@ -462,6 +480,15 @@ namespace LocoSwap.Language {
         public static string remove {
             get {
                 return ResourceManager.GetString("remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cache has been deleted.
+        /// </summary>
+        public static string removed_cache {
+            get {
+                return ResourceManager.GetString("removed_cache", resourceCulture);
             }
         }
         

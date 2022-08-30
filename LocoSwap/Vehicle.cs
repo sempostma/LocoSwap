@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace LocoSwap
@@ -8,7 +9,9 @@ namespace LocoSwap
         Unknown,
         Engine,
         Wagon,
-        Tender
+        Tender,
+        Preload,
+        PreloadFragment
     }
     public enum VehicleExistance
     {

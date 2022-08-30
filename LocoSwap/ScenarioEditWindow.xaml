@@ -7,7 +7,7 @@
         xmlns:converters="clr-namespace:LocoSwap.Converters" xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         xmlns:lang="clr-namespace:LocoSwap.Language;assembly=LocoSwap.Language"
         mc:Ignorable="d"
-        Title="{Binding Scenario.Name, Mode=OneWay, StringFormat={x:Static lang:Resources.edit_scenario_title}}" Height="881.5" Width="1204.959" Closed="Window_Closed" KeyDown="Window_KeyDown">
+        Title="{Binding Scenario.Name, Mode=OneWay, StringFormat={x:Static lang:Resources.edit_scenario_title}}" Height="881.5" Width="1204.959" Closed="Window_Closed">
     <Window.Resources>
         <converters:VehicleStatusToImageConverter x:Key="VehicleStatusToImageConverter" />
         <converters:ConsistStatusToImageConverter x:Key="ConsistStatusToImageConverter" />
@@ -67,7 +67,7 @@
                 <Button x:Name="FlipButton" Content="{x:Static lang:Resources.flip}" HorizontalAlignment="Left" Margin="145,0,0,10.429" Width="125" VerticalContentAlignment="Center" VerticalAlignment="Bottom" Height="26" Click="FlipButton_Click"/>
             </Grid>
         </GroupBox>
-        <TreeView x:Name="DirectoryTree" Height="329" Margin="898,99,20,0" VerticalAlignment="Top" ItemsSource="{Binding Directories}" TreeViewItem.Expanded="TreeView_Expanded">
+        <TreeView x:Name="DirectoryTree" Height="329" Margin="898,99,20,0" VerticalAlignment="Top" TextInput="DirectoryTree_TextInput" ItemsSource="{Binding Directories}" TreeViewItem.Expanded="TreeView_Expanded">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding SubDirectories}">
                     <TextBlock Text="{Binding Name}" />

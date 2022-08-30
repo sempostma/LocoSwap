@@ -200,7 +200,8 @@ namespace LocoSwap
                 ret.InApFile = true;
                 ret.ApPath = context.ApPath;
                 var baseDir = Path.GetDirectoryName(context.ApPath);
-                ret.PathWithinAp = binPath.Replace(baseDir, "");
+                var normalizedBaseDir = binPath.Replace(baseDir, "").Trim('\\', '/').Replace('\\', '/');
+                ret.PathWithinAp = normalizedBaseDir;
                 _vehicleTable[vehicle.XmlPath] = ret;
                 return ret;
             }

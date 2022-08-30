@@ -243,6 +243,15 @@
   <data name="open_scenario_directory" xml:space="preserve">
     <value>Open scenario directory</value>
   </data>
+  <data name="clear_ts_cache" xml:space="preserve">
+    <value>Clear cache</value>
+  </data>
+  <data name="removed_cache" xml:space="preserve">
+    <value>Cache has been deleted</value>
+  </data>
+  <data name="delete_cache_task_not_finished" xml:space="preserve">
+    <value>Previous task not finished</value>
+  </data>
   <data name="path" xml:space="preserve">
     <value>Path</value>
   </data>
