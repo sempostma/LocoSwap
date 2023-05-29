@@ -21,6 +21,7 @@
                 <scm:SortDescription PropertyName="Name"/>
             </CollectionViewSource.SortDescriptions>
         </CollectionViewSource>
+        <converters:ScenarioStatusToImageConverter x:Key="ScenarioStatusToImageConverter" />
     </Window.Resources>
     <Grid>
         <ListView
@@ -72,16 +73,24 @@
         <ListView x:Name="ScenarioList" Margin="10,236,10,35" ItemsSource="{Binding Source={StaticResource ScenariosSource}}" MouseDoubleClick="ScenarioList_MouseDoubleClick">
             <ListView.View>
                 <GridView>
+                    <GridViewColumn Header="" Width="20">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Image Source="{Binding Path=HasMissingRollingStock, Converter={StaticResource ScenarioStatusToImageConverter}}" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                     <GridViewColumn Header="{x:Static lang:Resources.name}" Width="400" DisplayMemberBinding="{Binding Name}" />
                     <GridViewColumn Header="{x:Static lang:Resources.id}" Width="300" DisplayMemberBinding="{Binding Id}" />
                 </GridView>
             </ListView.View>
         </ListView>
-        <Button Content="{x:Static lang:Resources.edit_scenario}" HorizontalAlignment="Left" Margin="10,0,0,10.111" Width="145" Click="Button_Click" VerticalAlignment="Bottom"/>
-        <Button Content="{x:Static lang:Resources.open_scenario_directory}" HorizontalAlignment="Left" Margin="160,0,0,10.111"  Width="172"  Click="Button_Click_1" VerticalAlignment="Bottom"/>
-        <Button Name="ClearCacheBtn" Content="{x:Static lang:Resources.clear_ts_cache}" HorizontalAlignment="Left" Margin="337,0,0,10"  Width="172"  Click="Button_Click_2" VerticalAlignment="Bottom"/>
+        <Button Content="{x:Static lang:Resources.edit_scenario}" HorizontalAlignment="Left" Margin="10,0,0,10" Width="101" Click="Button_Click" VerticalAlignment="Bottom"/>
+        <Button Content="{x:Static lang:Resources.open_scenario_directory}" HorizontalAlignment="Left" Margin="116,0,0,10"  Width="146"  Click="Button_Click_1" VerticalAlignment="Bottom"/>
+        <Button Content="{x:Static lang:Resources.apply_replacement_rules}" HorizontalAlignment="Left" Margin="267,0,0,10"  Width="146" Click="ApplyReplacementRulesClick" VerticalAlignment="Bottom"/>
+        <!--<Button Name="ClearCacheBtn" Content="{x:Static lang:Resources.clear_ts_cache}" HorizontalAlignment="Left" Margin="267,0,0,10"  Width="86"  Click="Button_Click_2" VerticalAlignment="Bottom"/>-->
         <Button x:Name="SettingsButton" Content="{x:Static lang:Resources.settings}" Margin="658,0,10,10" VerticalAlignment="Bottom" Click="SettingsButton_Click"/>
         <ProgressBar Visibility="Visible" Value="{Binding LoadingProgress}" x:Name="LoadingProgressBar" HorizontalAlignment="Left" Height="20" Margin="514,0,0,10" VerticalAlignment="Bottom" Width="139"/>
-
+        <!--<Button x:Name="OpenMapInspectorBtn" Content="{x:Static lang:Resources.open_map_inspector}" HorizontalAlignment="Left" Margin="358,0,0,10"  Width="115"  Click="OpenRouteInspectorBtn_Click" VerticalAlignment="Bottom"/>-->
     </Grid>
 </Window>

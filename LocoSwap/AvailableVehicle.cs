@@ -101,7 +101,7 @@ namespace LocoSwap
                     var vehicle = new AvailableVehicle(binFile, new Context());
 
 
-                    if (vehicle.Type == VehicleType.PreloadFragment)
+                    if (vehicle.Type == VehicleType.PreloadFragment || vehicle.Type == VehicleType.Preload)
                     {
                         // possibly flip
                         var fragmentVehicles = vehicle.PreloadVehicles.Select(preloadVehicle =>
@@ -136,6 +136,7 @@ namespace LocoSwap
             Provider = binPathComponents[0];
             Product = binPathComponents[1];
             BlueprintId = Path.ChangeExtension(string.Join("\\", binPathComponents.Skip(2)), "xml");
+            string binFilename = Path.GetFileNameWithoutExtension(binPath);
             Exists = VehicleExistance.Found;
 
             VehicleAvailibilityResult selfAvalibility = VehicleAvailibility.IsVehicleAvailable(this, context);
@@ -191,7 +192,17 @@ namespace LocoSwap
             }
             if (blueprint.Name == "cConsistBlueprint")
             {
-                Name = blueprint.Element("DisplayName").Value + " Preload";
+                Name = Utilities.ChainOr(
+                    blueprint.Element("DisplayName").Value, 
+                    binFilename.Replace("_", " ")
+                ) + " Preload";
+            }
+            else if (blueprint.Name == "cConsistFragmentBlueprint")
+            {
+                Name = Utilities.ChainOr(
+                    blueprint.Element("DisplayName").Value, 
+                    binFilename.Replace("_", " ")
+                ) + " Preload Fragment";
             }
             else
             {

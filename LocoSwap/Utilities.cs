@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Xml.Linq;
 
@@ -27,6 +28,32 @@ namespace LocoSwap
                 File.SetAttributes(path, FileAttributes.Normal);
                 File.Delete(path);
             }
+        }
+        public static Action Debounce(this Action func, int milliseconds = 300)
+        {
+            var last = 0;
+            return () =>
+            {
+                var current = Interlocked.Increment(ref last);
+                Task.Delay(milliseconds).ContinueWith(task =>
+                {
+                    if (current == last) func();
+                    task.Dispose();
+                });
+            };
+        }
+        public static Action<T> Debounce<T>(this Action<T> func, int milliseconds = 300)
+        {
+            var last = 0;
+            return arg =>
+            {
+                var current = Interlocked.Increment(ref last);
+                Task.Delay(milliseconds).ContinueWith(task =>
+                {
+                    if (current == last) func(arg);
+                    task.Dispose();
+                });
+            };
         }
         public static bool ChangeTsPath()
         {
@@ -181,5 +208,17 @@ namespace LocoSwap
 
             public static Random Instance { get { return threadLocal.Value; } }
         }
+
+        public static string ChainOr(params string[] list)
+        {
+            for (int i = 0; i < list.Length; i++)
+            {
+                if (!String.IsNullOrWhiteSpace(list[i])) return list[i];
+            }
+            return "";
+        }
+
     }
 }
+
+

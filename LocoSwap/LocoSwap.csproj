@@ -96,6 +96,19 @@
     <Compile Include="Converters\VehicleImageSourceConverter.cs" />
     <Compile Include="DirectoryItem.cs" />
     <Compile Include="Converters\InverseBooleanConverter.cs" />
+    <Compile Include="HeightPoint.cs" />
+    <Compile Include="ThreeWayPattern.cs" />
+    <Compile Include="SingleSlipPattern.cs" />
+    <Compile Include="DoubleSlipPattern.cs" />
+    <Compile Include="CrossingPattern.cs" />
+    <Compile Include="TurnoutPattern.cs" />
+    <Compile Include="TrackPattern.cs" />
+    <Compile Include="TrackRibbon.cs" />
+    <Compile Include="NetworkInfo.cs" />
+    <Compile Include="RouteDetailed.cs" />
+    <Compile Include="RouteInspector.xaml.cs">
+      <DependentUpon>RouteInspector.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ModelBase.cs" />
     <Compile Include="Route.cs" />
     <Compile Include="Scenario.cs" />
@@ -136,6 +149,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="RouteInspector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="ScenarioEditWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -211,6 +228,9 @@
   <ItemGroup>
     <Resource Include="Resources\ReplacedGreen.png" />
     <Resource Include="Resources\ReplacedRed.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\Search.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

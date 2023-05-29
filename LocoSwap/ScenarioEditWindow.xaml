@@ -15,7 +15,7 @@
         <converters:VehicleImageSourceConverter x:Key="VehicleImageSourceConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-        <CollectionViewSource Source="{Binding AvailableVehicles}" x:Key="AvailableVehiclesSource">
+        <CollectionViewSource Source="{Binding AvailableVehicles}" x:Key="AvailableVehiclesSource" Filter="CollectionViewSource_Filter">
             <CollectionViewSource.SortDescriptions>
                 <scm:SortDescription PropertyName="DisplayName"/>
             </CollectionViewSource.SortDescriptions>
@@ -90,15 +90,24 @@
                 <Button x:Name="AvailableVehicleNumberListButton" Content="{x:Static lang:Resources.numbering_list}" HorizontalAlignment="Left" Margin="0,269,0,0" VerticalAlignment="Top" Width="125" Height="26" Click="AvailableVehicleNumberListButton_Click"/>
             </Grid>
         </GroupBox>
-        <ListBox x:Name="AvailableVehicleListBox" ItemsSource="{Binding Source={StaticResource AvailableVehiclesSource}}" Margin="898,464,20,9.5">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding DisplayName}" Margin="0,0,0,0" />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <Grid Margin="898,464,20,12">
+            <Image x:Name="Search_Icon" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="20">
+                <Image.Source>
+                    <BitmapImage UriSource="/LocoSwap;component/Resources/Search.png" />
+                </Image.Source>
+            </Image>
+            <TextBox x:Name="AvialableVehiclesSearch" Text="{x:Static lang:Resources.search}"  TextChanged="TextBox_TextChanged" BorderThickness="1,1,1,1" Height="20" VerticalAlignment="Top" Margin="20,0,0,0"/>
+            <ListBox x:Name="AvailableVehicleListBox" ItemsSource="{Binding Source={StaticResource AvailableVehiclesSource}}" Margin="0,25,0,0" >
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}" Margin="0,0,0,0" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
         <Button x:Name="ScanButton" IsEnabled="{Binding VehicleScanInProgress, Converter={StaticResource InverseBooleanConverter}}" Content="{x:Static lang:Resources.look_up_vehicles}" Margin="898,433,0,0" VerticalAlignment="Top" Click="ScanButton_Click" Height="26" HorizontalAlignment="Left" Width="114"/>
-        <Button x:Name="ClearButton" Content="{x:Static lang:Resources.clear_vehicles}" Margin="1026,433,0,0" VerticalAlignment="Top" Click="AvailableVehiclesClearButton_Click" Height="26" HorizontalAlignment="Left" Width="73"/>
+        <Button x:Name="ClearButton" Content="{x:Static lang:Resources.clear_vehicles}" Margin="1017,433,0,0" VerticalAlignment="Top" Click="AvailableVehiclesClearButton_Click" Height="26" HorizontalAlignment="Left" Width="93"/>
         <Button Visibility="{Binding VehicleScanInProgress, Converter={StaticResource BoolToVis}}" x:Name="CancelScanningButton" Content="{x:Static lang:Resources.cancel}" Margin="0,433,20,0" VerticalAlignment="Top" Height="26" Click="CancelScanningButton_Click" HorizontalAlignment="Right" Width="75"/>
         <Button x:Name="AddToRulesButton" Content="{x:Static lang:Resources.add_to_rules}" HorizontalAlignment="Left" Margin="746,493,0,0" VerticalAlignment="Top" Width="147" Height="26" Click="AddToRulesButton_Click"/>
         <Button x:Name="ReplaceIdenticalButton" Content="{x:Static lang:Resources.replace_identical}" HorizontalAlignment="Left" Margin="593,493,0,0" VerticalAlignment="Top" Width="148" Height="26" Click="ReplaceIdenticalButton_Click"/>
@@ -109,6 +118,7 @@
         <Button x:Name="InsertBeforeButton" Content="{x:Static lang:Resources.insert_before}" HorizontalAlignment="Left" Margin="593,400,0,0" VerticalAlignment="Top" Width="148" Height="26" Click="InsertBeforeButton_Click"/>
         <Button x:Name="InsertAfterButton" Content="{x:Static lang:Resources.insert_after}" HorizontalAlignment="Left" Margin="746,400,0,0" VerticalAlignment="Top" Width="147" Height="26" Click="InsertAfterButton_Click"/>
         <Button x:Name="RemoveButton" Content="{x:Static lang:Resources.remove}" HorizontalAlignment="Left" Margin="593,431,0,0" VerticalAlignment="Top" Width="300" Height="26" Click="RemoveButton_Click"/>
+
 
     </Grid>
 </Window>

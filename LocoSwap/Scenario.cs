@@ -17,9 +17,11 @@ namespace LocoSwap
         private XDocument ScenarioProperties;
         private XDocument ScenarioXml;
         private XNamespace Namespace = "http://www.kuju.com/TnT/2003/Delta";
+        private List<Consist> consists = null;
         public string RouteId;
         public string Id { get; set; }
         public string Name { get; set; } = "Name not available";
+        public ScenarioVehicleExistance HasMissingRollingStock { get; set; }
         public string ScenarioDirectory
         {
             get
@@ -33,6 +35,7 @@ namespace LocoSwap
             RouteId = "";
             Id = "";
             Name = "";
+            HasMissingRollingStock = ScenarioVehicleExistance.Unknown;
         }
 
         public Scenario(string routeId, string id)
@@ -42,6 +45,7 @@ namespace LocoSwap
 
         public void Load(string routeId, string id)
         {
+            HasMissingRollingStock = ScenarioVehicleExistance.Unknown;
             RouteId = routeId;
             Id = id;
 
@@ -119,6 +123,12 @@ namespace LocoSwap
 
         public void ReadScenario(IProgress<int> progress = null)
         {
+            if (ScenarioXml != null)
+            {
+                progress.Report(100);
+                return;
+            }
+
             progress?.Report(10);
 
             ScenarioXml = TsSerializer.Load(Path.Combine(ScenarioDirectory, "Scenario.bin"));
@@ -128,6 +138,12 @@ namespace LocoSwap
 
         public List<Consist> GetConsists(IProgress<int> progress = null)
         {
+            if (this.consists != null)
+            {
+                progress.Report(100);
+                return this.consists;
+            }
+
             progress?.Report(0);
             List<Consist> ret = new List<Consist>();
             IEnumerable<XElement> consists = ScenarioXml.Root.Descendants("cConsist");
@@ -231,10 +247,17 @@ namespace LocoSwap
                     }
                     vehicle.Exists = VehicleExistance.Missing;
                     consist.IsComplete = ConsistVehicleExistance.Missing;
+                    HasMissingRollingStock = ScenarioVehicleExistance.Missing;
                 }
                 progress?.Report((int)Math.Ceiling((float)row.i / ret.Count * 100));
             }
 
+            if (HasMissingRollingStock == ScenarioVehicleExistance.Unknown)
+            {
+                HasMissingRollingStock = ScenarioVehicleExistance.Exists;
+            }
+
+            this.consists = ret;
             return ret;
         }
 
@@ -698,6 +721,42 @@ namespace LocoSwap
 
             File.Copy(Path.Combine(Utilities.GetTempDir(), "Scenario.bin"), scenarioFileName, true);
             File.Copy(propertiesXmlPath, scenarioPropertiesFileName, true);
+        }
+
+        public void ApplyPreset(List<SwapPresetItem> list)
+        {
+            List<SwapPresetItem> selectedPresetRules = list.ToList();
+            Dictionary<string, AvailableVehicle> availableVehicles = new Dictionary<string, AvailableVehicle>();
+            foreach (var item in selectedPresetRules)
+            {
+                var binPath = Path.ChangeExtension(item.NewXmlPath, "bin");
+                try
+                {
+                    availableVehicles[item.NewXmlPath] = new AvailableVehicle(binPath, new AvailableVehicle.Context());
+                }
+                catch (Exception inner)
+                {
+                    throw new Exception(
+                        string.Format(LocoSwap.Language.Resources.msg_cannot_load_vehicle, item.NewName),
+                        inner
+                    );
+                }
+            }
+
+            var consists = GetConsists();
+
+            foreach (Consist consist in consists)
+            {
+                foreach (ScenarioVehicle vehicle in consist.Vehicles)
+                {
+                    var rule = selectedPresetRules.Where((item) => item.TargetXmlPath == vehicle.XmlPath).FirstOrDefault();
+                    if (rule == null) continue;
+                    vehicle.CopyFrom(availableVehicles[rule.NewXmlPath]);
+                    ReplaceVehicle(consist.Idx, vehicle.Idx, availableVehicles[rule.NewXmlPath]);
+                    ChangeVehicleNumber(consist.Idx, vehicle.Idx, vehicle.Number);
+                    consist.DetermineCompletenessAfterReplace();
+                }
+            }
         }
     }
 

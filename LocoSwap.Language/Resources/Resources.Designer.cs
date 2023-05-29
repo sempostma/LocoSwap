@@ -88,6 +88,15 @@ namespace LocoSwap.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Apply replacement rules.
+        /// </summary>
+        public static string apply_replacement_rules {
+            get {
+                return ResourceManager.GetString("apply_replacement_rules", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Browse ....
         /// </summary>
         public static string browse {
@@ -169,6 +178,15 @@ namespace LocoSwap.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Keep vehicles.
+        /// </summary>
+        public static string do_not_remove_vehicles {
+            get {
+                return ResourceManager.GetString("do_not_remove_vehicles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Edit scenario.
         /// </summary>
         public static string edit_scenario {
@@ -246,6 +264,15 @@ namespace LocoSwap.Language {
         public static string language {
             get {
                 return ResourceManager.GetString("language", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to List all vehicles.
+        /// </summary>
+        public static string list_all_vehicles {
+            get {
+                return ResourceManager.GetString("list_all_vehicles", resourceCulture);
             }
         }
         
@@ -448,6 +475,15 @@ namespace LocoSwap.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Map Inspector.
+        /// </summary>
+        public static string open_map_inspector {
+            get {
+                return ResourceManager.GetString("open_map_inspector", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Open scenario directory.
         /// </summary>
         public static string open_scenario_directory {
@@ -601,6 +637,15 @@ namespace LocoSwap.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search.
+        /// </summary>
+        public static string search {
+            get {
+                return ResourceManager.GetString("search", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Select Train Simulator Path.
         /// </summary>
         public static string select_ts_path {
@@ -615,6 +660,24 @@ namespace LocoSwap.Language {
         public static string settings {
             get {
                 return ResourceManager.GetString("settings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Total track tiles.
+        /// </summary>
+        public static string track_tiles_total {
+            get {
+                return ResourceManager.GetString("track_tiles_total", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tracks record set total.
+        /// </summary>
+        public static string tracks_record_set_total {
+            get {
+                return ResourceManager.GetString("tracks_record_set_total", resourceCulture);
             }
         }
         

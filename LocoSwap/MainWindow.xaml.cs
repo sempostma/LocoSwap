@@ -1,13 +1,20 @@
-﻿using Serilog;
+﻿using Ionic.Zip;
+using LocoSwap.Properties;
+using Microsoft.Win32;
+using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace LocoSwap
@@ -22,6 +29,9 @@ namespace LocoSwap
         public string WindowTitle { get; set; } = "LocoSwap";
 
         public Task clearCacheTask = Task.CompletedTask;
+
+        CancellationTokenSource ScanCancellationTokenSource;
+        
         public MainWindow()
         {
             InitializeComponent();
@@ -32,6 +42,8 @@ namespace LocoSwap
             this.WindowTitle = "LocoSwap " + Assembly.GetEntryAssembly().GetName().Version.ToString();
 
             var routeIds = Route.ListAllRoutes();
+
+            ScenarioList.SelectionChanged += ScenarioList_SelectionChanged;
 
             foreach (var id in routeIds)
             {
@@ -46,6 +58,11 @@ namespace LocoSwap
 
                 }
             }
+        }
+
+        private void ScenarioList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            CheckForMissingRollingStock();
         }
 
         private void Route_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -87,12 +104,40 @@ namespace LocoSwap
             }
         }
 
+        private async void CheckForMissingRollingStock()
+        {
+            LoadingProgressBar.Visibility = Visibility.Visible;
+            IProgress<int> progress = new Progress<int>(value => { LoadingProgressBar.Value = value; });
+            progress.Report(0);
+            Scenario scenario = (Scenario)ScenarioList.SelectedItem;
+
+            if (scenario == null) return;
+
+            var statusTask = Task.Run(() =>
+            {
+                int index = 0;
+                scenario.ReadScenario(progress);
+                List<Consist> ret = scenario.GetConsists(progress);
+                Interlocked.Increment(ref index);
+
+                Dispatcher.Invoke(() =>
+                {
+                    ScenarioList.Items.Refresh();
+                });
+            });
+
+            await statusTask;
+            progress.Report(100);
+            LoadingProgressBar.Visibility = Visibility.Hidden;
+            ScenarioList.Items.Refresh();
+        }
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             if (RouteList.SelectedItem == null || ScenarioList.SelectedItem == null) return;
             var routeId = ((Route)RouteList.SelectedItem).Id;
-            var scenarioId = ((Scenario)ScenarioList.SelectedItem).Id;
-            var editWindow = new ScenarioEditWindow(routeId, scenarioId);
+            var scenario = ((Scenario)ScenarioList.SelectedItem);
+            var editWindow = new ScenarioEditWindow(scenario);
             editWindow.Show();
         }
 
@@ -115,8 +160,8 @@ namespace LocoSwap
             {
                 if (RouteList.SelectedItem == null) return;
                 var routeId = ((Route)RouteList.SelectedItem).Id;
-                var scenarioId = ((Scenario)dataContext).Id;
-                var editWindow = new ScenarioEditWindow(routeId, scenarioId);
+                Scenario scenario = ((Scenario)dataContext);
+                var editWindow = new ScenarioEditWindow(scenario);
                 editWindow.Show();
             }
         }
@@ -175,5 +220,35 @@ namespace LocoSwap
             });
         }
 
+        private void OpenRouteInspectorBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (RouteList.SelectedItem == null) return;
+            var routeId = ((Route)RouteList.SelectedItem).Id;
+            var editWindow = new RouteInspector(routeId);
+            editWindow.Show();
+        }
+
+        void ApplyReplacementRulesClick(object sender, RoutedEventArgs e)
+        {
+            if (RouteList.SelectedItem == null || ScenarioList.SelectedItem == null) return;
+            var scenario = (Scenario)ScenarioList.SelectedItem;
+
+            try
+            {
+                scenario.ApplyPreset(Settings.Default.Preset.List.ToList());
+
+                MessageBox.Show(
+                    LocoSwap.Language.Resources.msg_swap_completed,
+                    LocoSwap.Language.Resources.msg_message,
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            } 
+            catch(Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    LocoSwap.Language.Resources.msg_error,
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
     }
 }

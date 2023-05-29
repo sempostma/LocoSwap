@@ -78,23 +78,40 @@ namespace LocoSwap
         private string searchTerm = "";
         private DateTime lastSearch = DateTime.Now;
 
+        private string SearchText;
         private string RouteId;
         private string ScenarioId;
         private ScenarioViewModel ViewModel;
         private CancellationTokenSource ScanCancellationTokenSource;
         private SwapPresetWindow PresetWindow;
+        private Action RefreshAvailableVehiclesDebounced;
 
-        public ScenarioEditWindow(string routeId, string scenarioId)
+        public ScenarioEditWindow(Scenario scenario)
         {
             InitializeComponent();
-            RouteId = routeId;
-            ScenarioId = scenarioId;
+            ClearButton.Visibility = Visibility.Hidden;
+            RouteId = scenario.RouteId;
+            ScenarioId = scenario.Id;
             ViewModel = new ScenarioViewModel();
+            ViewModel.AvailableVehicles.CollectionChanged += AvailableVehicles_CollectionChanged;
             DataContext = ViewModel;
             ViewModel.Route = new Route(RouteId);
-            ViewModel.Scenario = new Scenario(RouteId, ScenarioId);
+            ViewModel.Scenario = scenario;
             VehicleAvailibility.ClearTable();
+            RefreshAvailableVehiclesDebounced = Utilities.Debounce(() =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    AvailableVehicleListBox.Items.Refresh();
+                });
+            });
+
             ReadScenario();
+        }
+
+        private void AvailableVehicles_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            ClearButton.Visibility = ViewModel.AvailableVehicles.Count > 0 ? Visibility.Visible : Visibility.Hidden;
         }
 
         public async void ReadScenario()
@@ -770,6 +787,8 @@ namespace LocoSwap
 
         private void PresetWindow_ApplyClicked(object sender, EventArgs e)
         {
+            ViewModel.Scenario.ApplyPreset(PresetWindow.SelectedItems);
+
             List<SwapPresetItem> selectedPresetRules = PresetWindow.SelectedItems;
             Dictionary<string, AvailableVehicle> availableVehicles = new Dictionary<string, AvailableVehicle>();
             foreach (var item in selectedPresetRules)
@@ -989,9 +1008,22 @@ namespace LocoSwap
             didPressEnter = false;
         }
 
-        private void Window_KeyDown(object sender, KeyEventArgs e)
+        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            SearchText = AvialableVehiclesSearch.Text;
+            if (!IsInitialized) return;
+            RefreshAvailableVehiclesDebounced();
+        }
 
+        private void CollectionViewSource_Filter(object sender, System.Windows.Data.FilterEventArgs e)
+        {
+            AvailableVehicle item = e.Item as AvailableVehicle;
+            if (String.IsNullOrWhiteSpace(SearchText) || SearchText == LocoSwap.Language.Resources.search)
+            {
+                e.Accepted = true;
+                return;
+            }
+            e.Accepted = item.DisplayName.ToLower().Contains(SearchText.ToLower());
         }
     }
 

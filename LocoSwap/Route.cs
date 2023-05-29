@@ -10,10 +10,12 @@ namespace LocoSwap
 {
     public class Route : ModelBase
     {
-        private XDocument RouteProperties;
-        private string _id;
-        private string _name;
-        private bool _isFavorite;
+        protected XDocument RouteProperties;
+        protected string _id;
+        protected string _name;
+        protected bool _isFavorite;
+        protected static Dictionary<string, ZipFile> _cachedZipFiles;
+
         public string Id
         {
             get => _id;
@@ -48,34 +50,49 @@ namespace LocoSwap
             Load(id);
         }
 
+        private ZipFile LoadAp(string apPath)
+        {
+            if (_cachedZipFiles.ContainsKey(apPath)) return _cachedZipFiles[apPath];
+            var zipFile = ZipFile.Read(apPath);
+            _cachedZipFiles[apPath] = zipFile;
+            return zipFile;
+        }
+
+        public string GetFilePath(string filename)
+        {
+            string fullPath = Path.Combine(RouteDirectory, filename);
+            if (File.Exists(fullPath) || Directory.Exists(fullPath))
+            {
+                return fullPath;
+            }
+            bool found = false;
+            fullPath = Path.Combine(Utilities.GetTempDir(), filename);
+            Utilities.RemoveFile(fullPath);
+            string[] apFiles = Directory.GetFiles(RouteDirectory);
+            foreach (string apPath in apFiles)
+            {
+                try
+                {
+                    var zipFile = LoadAp(apPath);
+                    var apEntry = zipFile.Where(entry => entry.FileName == filename).FirstOrDefault();
+                    if (apEntry == null) continue;
+                    apEntry.Extract(Utilities.GetTempDir());
+                    found = true;
+                    break;
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+            if (!found) throw new Exception($"{filename} not found for this route ID");
+            return fullPath;
+        }
+
         public void Load(string id)
         {
             Id = id;
-            string xmlPath = Path.Combine(RouteDirectory, "RouteProperties.xml");
-            if (!File.Exists(xmlPath))
-            {
-                bool found = false;
-                xmlPath = Path.Combine(Utilities.GetTempDir(), "RouteProperties.xml");
-                Utilities.RemoveFile(xmlPath);
-                string[] apFiles = Directory.GetFiles(RouteDirectory);
-                foreach (string apPath in apFiles)
-                {
-                    try
-                    {
-                        var zipFile = ZipFile.Read(apPath);
-                        var apEntry = zipFile.Where(entry => entry.FileName == "RouteProperties.xml").FirstOrDefault();
-                        if (apEntry == null) continue;
-                        apEntry.Extract(Utilities.GetTempDir());
-                        found = true;
-                        break;
-                    }
-                    catch (Exception)
-                    {
-
-                    }
-                }
-                if (!found) throw new Exception("RouteProperties.xml not found for this route ID");
-            }
+            string xmlPath = GetFilePath("RouteProperties.xml");
             RouteProperties = XmlDocumentLoader.Load(xmlPath);
 
             XElement displayName = RouteProperties.XPathSelectElement("/cRouteProperties/DisplayName/Localisation-cUserLocalisedString");

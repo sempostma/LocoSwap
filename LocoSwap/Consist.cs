@@ -9,6 +9,15 @@ namespace LocoSwap
         PartiallyReplaced,
         FullyReplaced
     }
+
+    public enum ScenarioVehicleExistance
+    {
+        Exists,
+        Missing,
+        MissingButInPreset,
+        Unknown
+    }
+
     public class Consist : ModelBase
     {
         private int _idx;

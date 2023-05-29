@@ -7,6 +7,7 @@
         xmlns:local="clr-namespace:LocoSwap"
         xmlns:lang="clr-namespace:LocoSwap.Language;assembly=LocoSwap.Language"
         mc:Ignorable="d"
+        x:Name="WindowSwapPreset"
         Title="SwapPresetWindow" Height="340" Width="550">
     <Window.Resources>
         <DataTemplate x:Key="FirstCell">
@@ -30,7 +31,9 @@
         <ListView x:Name="PresetList" Margin="10,10,10,35.5" ItemsSource="{Binding Source={x:Static p:Settings.Default}, Path=Preset.List, Mode=OneWay}" SelectionMode="Multiple">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn CellTemplate="{StaticResource FirstCell}" Width="30"/>
+                    <GridViewColumn CellTemplate="{StaticResource FirstCell}" Width="30">
+                        <CheckBox IsChecked="{Binding ElementName=WindowSwapPreset, Path=IsCheckAll}" Click="ChkSelectAll_Click" Margin="0" Name="ChkSelectAll" />
+                    </GridViewColumn>
                     <GridViewColumn CellTemplate="{StaticResource FindCell}" Header="{x:Static lang:Resources.rule_find}" Width="200"/>
                     <GridViewColumn CellTemplate="{StaticResource ReplaceWithCell}" Header="{x:Static lang:Resources.rule_replace}" Width="200" />
                 </GridView>

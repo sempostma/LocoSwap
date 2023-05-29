@@ -69,4 +69,35 @@ namespace LocoSwap.Converters
             throw new NotSupportedException();
         }
     }
+
+    [ValueConversion(typeof(ConsistVehicleExistance), typeof(string))]
+    public class ScenarioStatusToImageConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null) return string.Empty;
+            var status = (ScenarioVehicleExistance)value;
+            string image;
+            switch (status)
+            {
+                case ScenarioVehicleExistance.Unknown:
+                    return String.Empty;
+                case ScenarioVehicleExistance.Exists:
+                    image = "BulletGreen.png";
+                    break;
+                case ScenarioVehicleExistance.MissingButInPreset:
+                case ScenarioVehicleExistance.Missing:
+                default:
+                    image = "BulletRed.png";
+                    break;
+            }
+            string uri = String.Format("/LocoSwap;component/Resources/{0}", image);
+            return uri;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
 }
